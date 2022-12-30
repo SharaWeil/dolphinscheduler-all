@@ -21,6 +21,9 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.LoggerFactory;
 import org.springframework.aop.framework.ProxyFactory;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.multipart.MultipartFile;
 import org.apache.http.entity.mime.*;
 import org.apache.http.entity.mime.content.*;
@@ -66,12 +69,12 @@ public class DsClientFactory implements MethodInterceptor{
                 .encoder(feignEncoder())
                 .decoder(feignDecoder())
                 .target(apiClazz, url);
-
+        this.restfulUrl = url;
         ProxyFactory proxyFactory = new ProxyFactory();
         proxyFactory.addAdvice(this);
         proxyFactory.setTarget(target);
 
-        return target;
+        return (T)proxyFactory.getProxy();
     }
 
     /**

@@ -2,7 +2,6 @@
 *.jar
 *.war
 *.ear
-*.log
 *.svn
 *.iml
 *.rar
@@ -10,4 +9,4 @@
 .classpath
 .git
 .idea
-.ysera_core/target
+.logs

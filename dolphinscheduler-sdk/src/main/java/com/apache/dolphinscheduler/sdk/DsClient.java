@@ -179,12 +179,12 @@ public class DsClient implements AutoCloseable{
                 processInstancePriority, workerGroup, environmentCode, startParams,
                 expectedParallelismNumber, 0);
 
-        if (result.getCode() != 200){
+        if (result.getCode() != 0){
             LOGGER.error("提交任务失败");
             throw new RuntimeException("提交任务失败: "+result.getMsg());
         }
         Map<String, Object> data = result.getData();
-        String commandId = String.valueOf(data.get("id"));
+        String commandId = "123";
 
         // 等待接收
         final CountDownLatch latch = new CountDownLatch(1);
@@ -193,7 +193,7 @@ public class DsClient implements AutoCloseable{
         ProcessInstanceStateCommand stateCommand = new ProcessInstanceStateCommand();
         stateCommand.setId(commandId);
         try {
-            HostAndPort hostAndPort1 = HostAndPort.fromHost(hostAndPort);
+            HostAndPort hostAndPort1 = HostAndPort.fromString(hostAndPort);
             client.send(new Host(hostAndPort1.getHost(),hostAndPort1.getPort()),stateCommand.convert2Command(CommandType.PROCESS_INSTANCE_STATE));
 
             ProcessStateCallback processStateCallback = new ProcessStateCallback() {
