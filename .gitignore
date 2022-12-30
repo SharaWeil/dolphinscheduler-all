@@ -1,0 +1,13 @@
+*.class
+*.jar
+*.war
+*.ear
+*.log
+*.svn
+*.iml
+*.rar
+*.zip
+.classpath
+.git
+.idea
+.ysera_core/target
