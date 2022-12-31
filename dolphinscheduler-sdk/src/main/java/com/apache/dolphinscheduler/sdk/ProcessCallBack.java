@@ -1,5 +1,7 @@
 package com.apache.dolphinscheduler.sdk;
 
+import org.apache.dolphinscheduler.remote.command.ProcessInstanceStateCommand;
+
 /**
  * @author ysear
  * @date 2022/12/30

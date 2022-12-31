@@ -5,6 +5,7 @@ import com.google.common.net.HostAndPort;
 import org.apache.commons.lang.StringUtils;
 import org.apache.dolphinscheduler.remote.NettyRemotingClient;
 import org.apache.dolphinscheduler.remote.command.CommandType;
+import org.apache.dolphinscheduler.remote.command.ProcessInstanceStateCommand;
 import org.apache.dolphinscheduler.remote.config.NettyClientConfig;
 import org.apache.dolphinscheduler.remote.utils.Host;
 import org.apache.hadoop.fs.Path;
@@ -208,13 +209,13 @@ public class DsClient implements AutoCloseable{
             };
             ProcessInstanceStateProcessor.addListener(processStateCallback,commandId);
 
-            // 根据等待超时事件计算
-            if(await <= 0 || timeUnit == null) {
-                latch.await();
-            } else {
-                // 等待一定的时间，超时则通过
-                latch.await(await, timeUnit);
-            }
+//            // 根据等待超时事件计算
+//            if(await <= 0 || timeUnit == null) {
+//                latch.await();
+//            } else {
+//                // 等待一定的时间，超时则通过
+//                latch.await(await, timeUnit);
+//            }
         }catch (Exception e){
             e.printStackTrace();
         }
