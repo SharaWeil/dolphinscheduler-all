@@ -3,17 +3,13 @@ package com.apache.dolphinscheduler.sdk;
 
 import com.google.common.net.HostAndPort;
 import org.apache.commons.lang.StringUtils;
-import org.apache.dolphinscheduler.remote.NettyRemotingClient;
 import org.apache.dolphinscheduler.remote.command.CommandType;
 import org.apache.dolphinscheduler.remote.command.ProcessInstanceStateCommand;
-import org.apache.dolphinscheduler.remote.config.NettyClientConfig;
 import org.apache.dolphinscheduler.remote.utils.Host;
 import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.NonNull;
-import org.springframework.stereotype.Component;
 
 import java.util.Map;
 import java.util.Optional;
@@ -201,6 +197,7 @@ public class DsClient implements AutoCloseable{
                 @Override
                 public void callback(ProcessInstanceStateCommand command) {
                     // 根据不同的状态调用不同的callBack方法
+                    LOGGER.info("command:{}",command.toString());
                 }
                 @Override
                 public void finish() {

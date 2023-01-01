@@ -4,10 +4,9 @@ import java.util.List;
 
 /**
  * @author ysear
- * @date 2022/12/30
+ * @date 2022/12/31
  */
 public class ArrayResult {
-
 
     /**
      * Code编码
