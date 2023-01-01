@@ -1,4 +1,4 @@
-package com.apache.dolphinscheduler.sdk;
+package com.apache.dolphinscheduler.sdk.processer;
 
 import org.apache.dolphinscheduler.remote.command.ProcessInstanceStateCommand;
 
@@ -18,7 +18,7 @@ public interface ProcessStateCallback {
     /**
      * 完成
      */
-    default void finish(){
+    default void finish(ProcessInstanceStateCommand command){
 
     }
 }

@@ -1,4 +1,4 @@
-package com.apache.dolphinscheduler.sdk;
+package com.apache.dolphinscheduler.sdk.remote;
 
 import feign.Headers;
 import feign.Param;

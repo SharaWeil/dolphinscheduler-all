@@ -1,4 +1,4 @@
-package com.apache.dolphinscheduler.sdk;
+package com.apache.dolphinscheduler.sdk.remote;
 
 import com.alibaba.fastjson.JSON;
 import com.google.common.net.MediaType;
@@ -21,9 +21,6 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.LoggerFactory;
 import org.springframework.aop.framework.ProxyFactory;
-import org.springframework.web.context.request.RequestAttributes;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.multipart.MultipartFile;
 import org.apache.http.entity.mime.*;
 import org.apache.http.entity.mime.content.*;

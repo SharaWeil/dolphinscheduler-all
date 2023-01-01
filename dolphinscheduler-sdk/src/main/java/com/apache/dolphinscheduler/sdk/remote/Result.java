@@ -1,4 +1,4 @@
-package com.apache.dolphinscheduler.sdk;
+package com.apache.dolphinscheduler.sdk.remote;
 
 import java.util.Map;
 

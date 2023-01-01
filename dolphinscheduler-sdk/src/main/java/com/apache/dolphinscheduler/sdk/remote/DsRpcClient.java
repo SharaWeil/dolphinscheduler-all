@@ -1,7 +1,8 @@
-package com.apache.dolphinscheduler.sdk;
+package com.apache.dolphinscheduler.sdk.remote;
 
+import com.apache.dolphinscheduler.sdk.processer.ProcessInstanceStateProcessor;
+import com.google.common.net.HostAndPort;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
 import org.apache.dolphinscheduler.remote.NettyRemotingClient;
 import org.apache.dolphinscheduler.remote.command.Command;
 import org.apache.dolphinscheduler.remote.command.CommandType;
@@ -53,5 +54,10 @@ public class DsRpcClient implements AutoCloseable{
 
     public void send(final Host host, final Command command) throws RemotingException {
         remotingClient.send(host,command);
+    }
+
+    public void send(final String hostAndPort, final Command command) throws RemotingException {
+        HostAndPort hostAndPort1 = HostAndPort.fromString(hostAndPort);
+        remotingClient.send(new Host(hostAndPort1.getHost(),hostAndPort1.getPort()),command);
     }
 }

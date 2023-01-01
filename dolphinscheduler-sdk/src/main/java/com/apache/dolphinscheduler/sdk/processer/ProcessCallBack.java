@@ -1,4 +1,4 @@
-package com.apache.dolphinscheduler.sdk;
+package com.apache.dolphinscheduler.sdk.processer;
 
 import org.apache.dolphinscheduler.remote.command.ProcessInstanceStateCommand;
 

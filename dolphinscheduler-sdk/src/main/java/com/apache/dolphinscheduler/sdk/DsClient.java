@@ -1,11 +1,19 @@
 package com.apache.dolphinscheduler.sdk;
 
 
+import com.apache.dolphinscheduler.sdk.configuration.DolphinSchedulerProperties;
+import com.apache.dolphinscheduler.sdk.processer.ProcessCallBack;
+import com.apache.dolphinscheduler.sdk.processer.ProcessInstanceStateProcessor;
+import com.apache.dolphinscheduler.sdk.processer.ProcessStateCallback;
+import com.apache.dolphinscheduler.sdk.remote.*;
+import com.apache.dolphinscheduler.sdk.utils.SnowflakeIdUtils;
 import com.google.common.net.HostAndPort;
 import org.apache.commons.lang.StringUtils;
+import org.apache.dolphinscheduler.common.enums.StateEventType;
 import org.apache.dolphinscheduler.remote.command.CommandType;
 import org.apache.dolphinscheduler.remote.command.ProcessInstanceStateCommand;
 import org.apache.dolphinscheduler.remote.utils.Host;
+import org.apache.dolphinscheduler.rpc.protocol.EventType;
 import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -142,7 +150,8 @@ public class DsClient implements AutoCloseable{
                            long await,
                            TimeUnit timeUnit
     ){
-
+        final ProcessInstanceStateCommand.CommandType add = ProcessInstanceStateCommand.CommandType.ADD;
+        final ProcessInstanceStateCommand.ConsumerType consumerType = ProcessInstanceStateCommand.ConsumerType.SUBSCRIBE_ONE;
         String scheduleTime = "";
         String processInstancePriority = "MEDIUM";
         String warningType = "NONE";
@@ -152,24 +161,7 @@ public class DsClient implements AutoCloseable{
         String taskDependType = "TASK_POST";
         String expectedParallelismNumber = "";
         String runMode = "RUN_MODE_SERIAL";
-        String hostAndPort;
-
-        final ArrayResult master = getAllMaster();
-        if(master == null || master.getData() == null || master.getData().isEmpty()) {
-            throw new IllegalArgumentException("没有可用的 dolphinscheduler master。");
-        }
-
-        Map<String, Object> masterInfo = (Map)master.getData().get(0);
-        String zkpath = (String) masterInfo.get("zkDirectory");
-        if(StringUtils.isBlank(zkpath)) {
-            throw new IllegalArgumentException("没有可用的 dolphinscheduler master。");
-        }
-        // 默认的 那个 master
-        hostAndPort = StringUtils.trimToNull(new Path(zkpath).getName());
-        if(StringUtils.isBlank(hostAndPort)) {
-            throw new IllegalArgumentException("没有可用的 dolphinscheduler master。");
-        }
-
+        String hostAndPort = getHostAndPort();
         //提交任务
         Result result = submitTask(projectCode, taskCode, scheduleTime, failureStrategy,
                 warningType, warningGroupId, execType, startNodeList, taskDependType, runMode,
@@ -181,43 +173,136 @@ public class DsClient implements AutoCloseable{
             throw new RuntimeException("提交任务失败: "+result.getMsg());
         }
         Map<String, Object> data = result.getData();
-        String commandId = "123";
-
+        int commandId = 0;
+        Object id = data.get("id");
+        if (null != id){
+            commandId = Integer.parseInt(id.toString());
+        }
         // 等待接收
         final CountDownLatch latch = new CountDownLatch(1);
-
+        String snowflakeId = SnowflakeIdUtils.generateIdStr();
         // 通过master的rpc接口，发送订阅这个command id的事件
         ProcessInstanceStateCommand stateCommand = new ProcessInstanceStateCommand();
-        stateCommand.setId(commandId);
+        stateCommand.setId(snowflakeId);
+        stateCommand.setCommandType(add);
+        stateCommand.setConsumerType(consumerType);
+        stateCommand.setCommandId(commandId);
         try {
             HostAndPort hostAndPort1 = HostAndPort.fromString(hostAndPort);
-            client.send(new Host(hostAndPort1.getHost(),hostAndPort1.getPort()),stateCommand.convert2Command(CommandType.PROCESS_INSTANCE_STATE));
+            LOGGER.info("request command:{}",stateCommand.toString());
+            final Host host = new Host(hostAndPort1.getHost(), hostAndPort1.getPort());
+            client.send(host,stateCommand.convert2Command(CommandType.PROCESS_INSTANCE_STATE));
 
             ProcessStateCallback processStateCallback = new ProcessStateCallback() {
                 @Override
                 public void callback(ProcessInstanceStateCommand command) {
                     // 根据不同的状态调用不同的callBack方法
                     LOGGER.info("command:{}",command.toString());
+                    boolean isFinished = command.getExecutionStatus().typeIsFinished();
+                    if (command.getEventType().equals(StateEventType.PROCESS_STATE_CHANGE) && isFinished){
+                        finish(command);
+                    }
                 }
                 @Override
-                public void finish() {
+                public void finish(ProcessInstanceStateCommand command) {
                     latch.countDown();
+                    ProcessInstanceStateCommand deleteCommand = new ProcessInstanceStateCommand();
+                    deleteCommand.setId(snowflakeId);
+                    deleteCommand.setCommandId(command.getCommandId());
+                    deleteCommand.setProcessInstanceId(command.getProcessInstanceId());
+                    deleteCommand.setCommandType(ProcessInstanceStateCommand.CommandType.DELETE);
+                    deleteCommand.setConsumerType(consumerType);
+                    try {
+                        client.send(host,deleteCommand.convert2Command(CommandType.PROCESS_INSTANCE_STATE));
+                    }catch (Exception e){
+                        e.printStackTrace();
+                    }
                 }
             };
-            ProcessInstanceStateProcessor.addListener(processStateCallback,commandId);
+            ProcessInstanceStateProcessor.addListener(processStateCallback,snowflakeId, consumerType);
 
-//            // 根据等待超时事件计算
-//            if(await <= 0 || timeUnit == null) {
-//                latch.await();
-//            } else {
-//                // 等待一定的时间，超时则通过
-//                latch.await(await, timeUnit);
-//            }
+            // 根据等待超时事件计算
+            if(await <= 0 || timeUnit == null) {
+                latch.await();
+            } else {
+                // 等待一定的时间，超时则通过
+                latch.await(await, timeUnit);
+            }
+            ProcessInstanceStateProcessor.removeListener(snowflakeId,consumerType);
         }catch (Exception e){
             e.printStackTrace();
         }
 
 
+    }
+
+    /**
+     *  订阅所有消息
+     * @return 返回订阅ID
+     */
+    public String consumerAll() {
+        final ProcessInstanceStateCommand.CommandType add = ProcessInstanceStateCommand.CommandType.ADD;
+        final ProcessInstanceStateCommand.ConsumerType consumerType = ProcessInstanceStateCommand.ConsumerType.SUBSCRIBE_ALL;
+        ProcessInstanceStateCommand stateCommand = new ProcessInstanceStateCommand();
+        String snowflakeId = SnowflakeIdUtils.generateIdStr();
+        stateCommand.setId(snowflakeId);
+        stateCommand.setCommandType(add);
+        stateCommand.setConsumerType(consumerType);
+        String hostAndPort = getHostAndPort();
+        try {
+            HostAndPort hostAndPort1 = HostAndPort.fromString(hostAndPort);
+            LOGGER.info("request command:{}", stateCommand.toString());
+            final Host host = new Host(hostAndPort1.getHost(), hostAndPort1.getPort());
+            client.send(host, stateCommand.convert2Command(CommandType.PROCESS_INSTANCE_STATE));
+
+            ProcessStateCallback processStateCallback = new ProcessStateCallback() {
+                @Override
+                public void callback(ProcessInstanceStateCommand command) {
+                    // 根据不同的状态调用不同的callBack方法
+                    LOGGER.info("command:{}", command.toString());
+                }
+                @Override
+                public void finish(ProcessInstanceStateCommand command) {
+                }
+            };
+            ProcessInstanceStateProcessor.addListener(processStateCallback, snowflakeId, consumerType);
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        return snowflakeId;
+    }
+
+    private String getHostAndPort() {
+        final ArrayResult master = getAllMaster();
+        if(master == null || master.getData() == null || master.getData().isEmpty()) {
+            throw new IllegalArgumentException("没有可用的 dolphinscheduler master。");
+        }
+        Map<String, Object> masterInfo = (Map) master.getData().get(0);
+        String zkpath = (String) masterInfo.get("zkDirectory");
+        if(StringUtils.isBlank(zkpath)) {
+            throw new IllegalArgumentException("没有可用的 dolphinscheduler master。");
+        }
+        // 默认的 那个 master
+        String hostAndPort = StringUtils.trimToNull(new Path(zkpath).getName());
+        if(StringUtils.isBlank(hostAndPort)) {
+            throw new IllegalArgumentException("没有可用的 dolphinscheduler master。");
+        }
+        return hostAndPort;
+    }
+
+    public void removeSubAllConsumer(@NonNull String consumerId){
+        final ProcessInstanceStateCommand.CommandType delete = ProcessInstanceStateCommand.CommandType.DELETE;
+        final ProcessInstanceStateCommand.ConsumerType consumerType = ProcessInstanceStateCommand.ConsumerType.SUBSCRIBE_ALL;
+        ProcessInstanceStateCommand deleteCommand = new ProcessInstanceStateCommand();
+        deleteCommand.setId(consumerId);
+        deleteCommand.setConsumerType(consumerType);
+        deleteCommand.setCommandType(delete);
+        try {
+            client.send(getHostAndPort(),deleteCommand.convert2Command(CommandType.PROCESS_INSTANCE_STATE));
+            ProcessInstanceStateProcessor.removeListener(consumerId, ProcessInstanceStateCommand.ConsumerType.SUBSCRIBE_ALL);
+        }catch (Exception exception){
+            exception.printStackTrace();
+        }
     }
 
 
