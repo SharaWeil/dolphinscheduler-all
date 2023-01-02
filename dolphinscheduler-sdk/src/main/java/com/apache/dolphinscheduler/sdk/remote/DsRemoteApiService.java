@@ -1,5 +1,6 @@
 package com.apache.dolphinscheduler.sdk.remote;
 
+import feign.Body;
 import feign.Headers;
 import feign.Param;
 import feign.RequestLine;
@@ -9,6 +10,10 @@ import feign.RequestLine;
  * @date 2022/12/30
  */
 public interface DsRemoteApiService {
+
+    @RequestLine("POST /login?userName={userName}&userPassword={userPassword}")
+    Result login(@Param(value = "userName") String userName,
+                 @Param(value = "userPassword") String userPassword);
 
 
     /**

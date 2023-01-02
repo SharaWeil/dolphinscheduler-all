@@ -13,12 +13,12 @@ import org.apache.dolphinscheduler.common.enums.StateEventType;
 import org.apache.dolphinscheduler.remote.command.CommandType;
 import org.apache.dolphinscheduler.remote.command.ProcessInstanceStateCommand;
 import org.apache.dolphinscheduler.remote.utils.Host;
-import org.apache.dolphinscheduler.rpc.protocol.EventType;
 import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
 
+import java.text.MessageFormat;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
@@ -33,13 +33,12 @@ public class DsClient implements AutoCloseable{
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DsClient.class);
 
-    private DolphinSchedulerProperties dsProperties;
+    private final Object lock = new Object();
 
     /**
      *  token
      */
-    private String token;
-
+    private final String token;
 
     /**
      * ds调用服务
@@ -50,10 +49,44 @@ public class DsClient implements AutoCloseable{
 
 
     public DsClient(DolphinSchedulerProperties dolphinSchedulerProperties) {
-        this.dsProperties = dolphinSchedulerProperties;
+        checkDsProperties(dolphinSchedulerProperties);
+        dsRemoteApiService = new DsClientFactory().newInstance(DsRemoteApiService.class, dolphinSchedulerProperties.getUrl());
         this.token = dolphinSchedulerProperties.getToken();
-        dsRemoteApiService = new DsClientFactory().newInstance(DsRemoteApiService.class,dsProperties.getUrl());
+        if (StringUtils.isBlank(token)){
+            Result result = dsRemoteApiService.login(dolphinSchedulerProperties.getUserName(), dolphinSchedulerProperties.getPassWord());
+            if (!result.getSuccess()) {
+                throw new RuntimeException(MessageFormat.format("login dolphinScheduler failed: {}",result.getMsg()));
+            }
+            String sessionId = String.valueOf(result.getData().get("sessionId"));
+            if (StringUtils.isBlank(sessionId)){
+                throw new RuntimeException(MessageFormat.format("login to dolphinScheduler failed {}! not sessionId found", sessionId));
+            }
+            LOGGER.info("user:{} Login to dolphinScheduler succeeded !",dolphinSchedulerProperties.getUserName());
+        }
         client = new DsRpcClient();
+    }
+
+    private void checkDsProperties(DolphinSchedulerProperties dolphinSchedulerProperties) {
+        String userName = dolphinSchedulerProperties.getUserName();
+        String token = dolphinSchedulerProperties.getToken();
+        if (StringUtils.isNotBlank(token)){
+            LOGGER.info("user:{} use token:{}",userName,token);
+            return;
+        }
+        String url = dolphinSchedulerProperties.getUrl();
+        if (StringUtils.isBlank(url)){
+            throw new RuntimeException("dolphinScheduler api url must not be null!");
+        }
+        LOGGER.warn("token:{} is null ,use login",token);
+        if (StringUtils.isBlank(userName)){
+            throw new RuntimeException("userName must not be null!");
+        }
+        String passWord = dolphinSchedulerProperties.getPassWord();
+        if (StringUtils.isNotBlank(passWord)){
+            LOGGER.info("user:{} use login",userName);
+            return;
+        }
+        throw new RuntimeException("Token and password cannot be empty at the same time");
     }
 
 
@@ -291,18 +324,7 @@ public class DsClient implements AutoCloseable{
     }
 
     public void removeSubAllConsumer(@NonNull String consumerId){
-        final ProcessInstanceStateCommand.CommandType delete = ProcessInstanceStateCommand.CommandType.DELETE;
-        final ProcessInstanceStateCommand.ConsumerType consumerType = ProcessInstanceStateCommand.ConsumerType.SUBSCRIBE_ALL;
-        ProcessInstanceStateCommand deleteCommand = new ProcessInstanceStateCommand();
-        deleteCommand.setId(consumerId);
-        deleteCommand.setConsumerType(consumerType);
-        deleteCommand.setCommandType(delete);
-        try {
-            client.send(getHostAndPort(),deleteCommand.convert2Command(CommandType.PROCESS_INSTANCE_STATE));
-            ProcessInstanceStateProcessor.removeListener(consumerId, ProcessInstanceStateCommand.ConsumerType.SUBSCRIBE_ALL);
-        }catch (Exception exception){
-            exception.printStackTrace();
-        }
+        ProcessInstanceStateProcessor.removeListener(consumerId, ProcessInstanceStateCommand.ConsumerType.SUBSCRIBE_ALL);
     }
 
 
