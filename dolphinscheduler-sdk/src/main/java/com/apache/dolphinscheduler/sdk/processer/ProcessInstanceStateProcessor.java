@@ -23,10 +23,10 @@ public class ProcessInstanceStateProcessor implements NettyRequestProcessor {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ProcessInstanceStateProcessor.class);
 
-    private final static Map<String,ProcessStateCallback> subOne = new ConcurrentHashMap<>();
+    private final static Map<String,ProcessStateCallback> SUB_ONE = new ConcurrentHashMap<>();
 
 
-    private final static Map<String,ProcessStateCallback> subAll = new ConcurrentHashMap<>();
+    private final static Map<String,ProcessStateCallback> SUB_ALL = new ConcurrentHashMap<>();
 
     @Override
     public void process(Channel channel, Command command) {
@@ -38,13 +38,13 @@ public class ProcessInstanceStateProcessor implements NettyRequestProcessor {
 
             ProcessInstanceStateCommand.ConsumerType type = processInstanceStateCommand.getConsumerType();
             if (type.equals(ProcessInstanceStateCommand.ConsumerType.SUBSCRIBE_ONE)){
-                for (Map.Entry<String,ProcessStateCallback> entry : subOne.entrySet()) {
+                for (Map.Entry<String,ProcessStateCallback> entry : SUB_ONE.entrySet()) {
                     if (processInstanceStateCommand.getId().equals(entry.getKey())){
                         entry.getValue().callback(processInstanceStateCommand);
                     }
                 }
             }else {
-                subAll.forEach((k,v)->{
+                SUB_ALL.forEach((k, v)->{
                     v.callback(processInstanceStateCommand);
                 });
             }
@@ -61,15 +61,15 @@ public class ProcessInstanceStateProcessor implements NettyRequestProcessor {
     public static void addListener(ProcessStateCallback callback,String id,ProcessInstanceStateCommand.ConsumerType subType){
         switch (subType){
             case SUBSCRIBE_ALL:{
-                subAll.put(id,callback);
+                SUB_ALL.put(id,callback);
                 break;
             }
             case SUBSCRIBE_ONE:{
-                subOne.put(id,callback);
+                SUB_ONE.put(id,callback);
                 break;
             }
             default:
-                subOne.put(id,callback);
+                SUB_ONE.put(id,callback);
         }
     }
 
@@ -83,11 +83,11 @@ public class ProcessInstanceStateProcessor implements NettyRequestProcessor {
         Map<String,ProcessStateCallback> removeMaps =null;
         switch (consumerType){
             case SUBSCRIBE_ONE:{
-                removeMaps = subOne;
+                removeMaps = SUB_ONE;
                 break;
             }
             case SUBSCRIBE_ALL:{
-                removeMaps = subAll;
+                removeMaps = SUB_ALL;
                 break;
             }
             default:

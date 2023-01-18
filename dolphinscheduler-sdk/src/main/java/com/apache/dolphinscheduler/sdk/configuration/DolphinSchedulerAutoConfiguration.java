@@ -24,7 +24,7 @@ public class DolphinSchedulerAutoConfiguration {
         this.dolphinSchedulerProperties = dolphinSchedulerProperties;
     }
 
-    @Bean
+    @Bean(destroyMethod = "shutDown")
     @ConditionalOnMissingBean
     public DsClient dsClient(){
         return new DsClient(dolphinSchedulerProperties);

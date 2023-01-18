@@ -33,8 +33,6 @@ public class DsClient implements AutoCloseable{
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DsClient.class);
 
-    private final Object lock = new Object();
-
     /**
      *  token
      */
@@ -376,8 +374,14 @@ public class DsClient implements AutoCloseable{
         return dsRemoteApiService.getAllEnvs(token, searchVal, page, pageSize);
     }
 
+    public void shutDown() throws Exception {
+        close();
+    }
+
     @Override
     public void close() throws Exception {
-
+        if (null != client){
+            client.close();
+        }
     }
 }
